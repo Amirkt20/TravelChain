@@ -94,7 +94,7 @@ describe("DigitalIdentity", function () {
 
     it("rejects unsupported document types", async function () {
       const { identity, traveler } = await loadFixture(deployAll);
-      await expect(identity.connect(traveler).StoreDocument(id("DIPLOMA"), id("f"), 0))
+      await expect(identity.connect(traveler).StoreDocument(id("DRIVING_LICENSE"), id("f"), 0))
         .to.be.revertedWithCustomError(identity, "UnsupportedDocType");
     });
 
