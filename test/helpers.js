@@ -1,7 +1,7 @@
-const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+import { network } from "hardhat";
+import { keccak256, toBytes } from "viem";
 
-const id = (text) => ethers.keccak256(ethers.toUtf8Bytes(text));
+const id = (text) => keccak256(toBytes(text));
 
 const DOC = {
   PASSPORT: id("PASSPORT"),
@@ -12,43 +12,126 @@ const DOC = {
   TRAVEL_INSURANCE: id("TRAVEL_INSURANCE"),
 };
 
-const ROLE = { None: 0, Traveler: 1, Airline: 2, Hotel: 3, TravelAgency: 4, BorderControl: 5 };
+const ROLE = {
+  None: 0,
+  Traveler: 1,
+  Airline: 2,
+  Hotel: 3,
+  TravelAgency: 4,
+  BorderControl: 5,
+};
 
 const HOUR = 60 * 60;
 const DAY = 24 * HOUR;
 
 async function deployAll() {
+  const { viem } = await network.connect();
 
-  const [admin, traveler, traveler2, airline, hotel, issuer, stranger, ...others] = await ethers.getSigners();
+  const [
+    admin,
+    traveler,
+    traveler2,
+    airline,
+    hotel,
+    issuer,
+    stranger,
+    ...others
+  ] = await viem.getWalletClients();
 
-  const identity = await (await ethers.getContractFactory("DigitalIdentity")).deploy();
-  const consent = await (await ethers.getContractFactory("ConsentManager")).deploy(await identity.getAddress());
-  const token = await (await ethers.getContractFactory("RewardToken")).deploy();
-  const sharing = await (await ethers.getContractFactory("DataSharing")).deploy(
-    await identity.getAddress(),
-    await consent.getAddress(),
-    await token.getAddress()
+  const identity = await viem.deployContract("DigitalIdentity");
+
+  const consent = await viem.deployContract("ConsentManager", [
+    identity.address,
+  ]);
+
+  const token = await viem.deployContract("RewardToken");
+
+  const sharing = await viem.deployContract("DataSharing", [
+    identity.address,
+    consent.address,
+    token.address,
+  ]);
+
+  await consent.write.SetDataSharing([sharing.address]);
+
+  const minterRole = await token.read.MINTER_ROLE();
+  await token.write.grantRole([minterRole, sharing.address]);
+
+  await identity.write.RegisterTraveler(
+    [id("NL-ID-123"), id("alice@mail.com")],
+    { account: traveler.account }
   );
 
-  await consent.SetDataSharing(await sharing.getAddress());
-  await token.grantRole(await token.MINTER_ROLE(), await sharing.getAddress());
+  await identity.write.RegisterTraveler(
+    [id("BR-ID-456"), id("bob@mail.com")],
+    { account: traveler2.account }
+  );
 
-  await identity.connect(traveler).RegisterTraveler(id("NL-ID-123"), id("alice@mail.com"));
-  await identity.connect(traveler2).RegisterTraveler(id("BR-ID-456"), id("bob@mail.com"));
-  await identity.RegisterOrganization(airline.address, ROLE.Airline, id("KVK-KLM"), id("ops@klm.test"));
-  await identity.RegisterOrganization(hotel.address, ROLE.Hotel, id("KVK-HOTEL"), id("desk@hotel.test"));
-  await identity.SetIssuer(issuer.address, true);
+  await identity.write.RegisterOrganization([
+    airline.account.address,
+    ROLE.Airline,
+    id("KVK-KLM"),
+    id("ops@klm.test"),
+  ]);
 
-  return { identity, consent, token, sharing, admin, traveler, traveler2, airline, hotel, issuer, stranger, others };
+  await identity.write.RegisterOrganization([
+    hotel.account.address,
+    ROLE.Hotel,
+    id("KVK-HOTEL"),
+    id("desk@hotel.test"),
+  ]);
+
+  await identity.write.SetIssuer([issuer.account.address, true]);
+
+  return {
+    viem,
+    identity,
+    consent,
+    token,
+    sharing,
+    admin,
+    traveler,
+    traveler2,
+    airline,
+    hotel,
+    issuer,
+    stranger,
+    others,
+  };
 }
 
 async function deployWithPassport() {
   const ctx = await deployAll();
-  const now = await time.latest();
+
+  const publicClient = await ctx.viem.getPublicClient();
+  const block = await publicClient.getBlock();
+  const now = Number(block.timestamp);
+
   const passportHash = id("alice-passport-file-contents");
-  await ctx.identity.connect(ctx.traveler).StoreDocument(DOC.PASSPORT, passportHash, now + 365 * DAY);
-  await ctx.identity.connect(ctx.issuer).AttestDocument(ctx.traveler.address, DOC.PASSPORT, passportHash);
+
+  await ctx.identity.write.StoreDocument(
+    [DOC.PASSPORT, passportHash, BigInt(now + 365 * DAY)],
+    { account: ctx.traveler.account }
+  );
+
+  await ctx.identity.write.AttestDocument(
+    [
+      ctx.traveler.account.address,
+      DOC.PASSPORT,
+      passportHash,
+    ],
+    { account: ctx.issuer.account }
+  );
+
   return { ...ctx, passportHash };
 }
 
-module.exports = { id, DOC, ROLE, HOUR, DAY, deployAll, deployWithPassport };
+export {
+  id,
+  DOC,
+  ROLE,
+  HOUR,
+  DAY,
+  deployAll,
+  deployWithPassport,
+};

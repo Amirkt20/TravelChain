@@ -1,30 +1,23 @@
-require("@nomicfoundation/hardhat-toolbox");
+import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
 
-module.exports = {
+export default {
+  plugins: [hardhatToolboxViem],
+
   solidity: {
     version: "0.8.20",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200
-      }
-    }
+        runs: 200,
+      },
+    },
   },
-  networks: {
-    hardhat: {
-      chainId: 31337
-    }
-  },
-  gasReporter: {
-    enabled: true,
-    currency: "USD",
-    outputFile: "gas-report.txt",
-    noColors: true
-  },
+
   paths: {
     sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts"
-  }
+    tests: {
+      solidity: "./contracts",
+      nodejs: "./test",
+    },
+  },
 };

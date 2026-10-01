@@ -11,8 +11,8 @@ contract ConsentManager is IConsentManager {
 
     address public immutable deployer;
 
-    uint256 public constant MIN_CONSENT_DURATION = 1 hours;
-    uint256 public constant MAX_CONSENT_DURATION = 30 days;
+    uint256 public constant MIN_CONSENT_DURATION = 1 days;
+    uint256 public constant MAX_CONSENT_DURATION = 365 days;
 
     mapping(address => mapping(address => mapping(bytes32 => Consent))) private consents;
 

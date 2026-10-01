@@ -64,7 +64,7 @@ Run the full demo:
 npx hardhat run scripts/demo.js
 ```
 
-The current test suite contains 68 tests.
+The current test suite contains 41 tests: 29 Solidity tests and 12 Node.js tests.
 
 To deploy the contracts to a local Hardhat node:
 
@@ -73,7 +73,7 @@ To deploy the contracts to a local Hardhat node:
 npx hardhat node
 
 # Terminal 2
-npx hardhat run scripts/deploy.js --network localhost
+npx hardhat run scripts/run-deploy.js --network localhost
 ```
 
 ## Main roles
@@ -118,8 +118,8 @@ document hashes, document validity dates, and issuer attestations.
 
 ### ConsentManager.sol
 
-This contract stores and checks consent. Consent must last between 1
-hour and 30 days and cannot last longer than the document itself.
+This contract stores and checks consent. Consent must last between 1 day
+and 365 days and cannot last longer than the document itself.
 Consent can also be revoked before it expires.
 
 Only `DataSharing` is allowed to create or revoke consent records.
@@ -175,24 +175,25 @@ of the system is not fully decentralized.
 
 ## Testing
 
-The project uses Hardhat, ethers, and Chai for testing.
+The project uses Hardhat 3 with Solidity-based tests and Node.js/Viem integration tests.
 
-The tests are split into the following files:
+The tests are split into two parts. The main contract unit tests are written
+in Solidity using the Foundry testing library through Hardhat:
 
--   `DigitalIdentity.test.js` - registration, roles, documents, and
-    issuer attestation
--   `ConsentManager.test.js` - consent permissions, duration, expiry,
-    and revocation
--   `DataSharing.test.js` - rewards, document access, and audit events
--   `RewardToken.test.js` - ERC20 behavior, minting permissions, and
-    supply cap
--   `Integration.test.js` - complete travel sharing flows and access
-    isolation
--   `Scalability.test.js` - gas behavior when the amount of activity
+-   `contracts/DigitalIdentity.t.sol`
+-   `contracts/ConsentManager.t.sol`
+-   `contracts/DataSharing.t.sol`
+-   `contracts/RewardToken.t.sol`
+
+The Node.js/Viem tests are used for complete flows and scalability:
+
+-   `test/Integration.test.js` - complete travel sharing flows, audit
+    logging, access isolation, and reward behavior
+-   `test/Scalability.test.js` - gas behavior when the amount of activity
     increases
--   `helpers.js` - shared deployment setup used by the tests
+-   `test/helpers.js` - shared deployment setup
 
-The current suite has **68 passing tests**.
+The current suite has **41 passing tests: 29 Solidity tests and 12 Node.js tests**.
 
 The integration tests also check important cases such as:
 
@@ -204,7 +205,7 @@ The integration tests also check important cases such as:
 -   batch consent for multiple travel documents
 -   repeated grant/revoke attempts trying to farm reward tokens
 
-Gas information is written to `gas-report.txt` when the tests are run.
+The scalability tests print gas measurements for the main operations. A separate gas summary is also included in `gas-report.txt`.
 
 ## Demo
 
@@ -212,7 +213,7 @@ The demo script shows one complete example with a traveler and an
 airline.
 
 It registers the required actors, stores a passport hash, attests it,
-grants 24-hour access, rewards the traveler, verifies an original and
+grants 48-hour access, rewards the traveler, verifies an original and
 modified file, revokes the consent, and finally shows that the next
 access attempt is denied.
 
@@ -228,13 +229,18 @@ npx hardhat run scripts/demo.js
 travelchain/
 ├── contracts/
 │   ├── ConsentManager.sol
+│   ├── ConsentManager.t.sol
 │   ├── DataSharing.sol
+│   ├── DataSharing.t.sol
 │   ├── DigitalIdentity.sol
+│   ├── DigitalIdentity.t.sol
 │   ├── RewardToken.sol
+│   ├── RewardToken.t.sol
 │   └── interfaces/
 ├── diagrams/
 ├── scripts/
 │   ├── deploy.js
+│   ├── run-deploy.js
 │   └── demo.js
 ├── test/
 ├── .gitignore
@@ -247,10 +253,11 @@ travelchain/
 ## Technology
 
 -   Solidity 0.8.20
--   Hardhat
+-   Hardhat 3
 -   OpenZeppelin Contracts
--   ethers v6
--   Chai
+-   Viem
+-   Foundry testing library (`forge-std`)
+-   Node.js test runner
 -   ERC20
 
 ## Current limitations

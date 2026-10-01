@@ -1,54 +1,64 @@
-const hre = require("hardhat");
-const fs = require("fs");
+import { network } from "hardhat";
+import fs from "node:fs";
 
-async function main() {
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Deploying TravelChain with:", deployer.address);
+export async function deploy() {
+  const { viem, networkName } = await network.connect();
+  const [deployer] = await viem.getWalletClients();
 
-  const identity = await (await hre.ethers.getContractFactory("DigitalIdentity")).deploy();
-  await identity.waitForDeployment();
-  console.log("DigitalIdentity:", await identity.getAddress());
+  console.log("Deploying TravelChain with:", deployer.account.address);
 
-  const consent = await (await hre.ethers.getContractFactory("ConsentManager")).deploy(await identity.getAddress());
-  await consent.waitForDeployment();
-  console.log("ConsentManager: ", await consent.getAddress());
+  const identity = await viem.deployContract("DigitalIdentity");
+  console.log("DigitalIdentity:", identity.address);
 
-  const token = await (await hre.ethers.getContractFactory("RewardToken")).deploy();
-  await token.waitForDeployment();
-  console.log("RewardToken:    ", await token.getAddress());
+  const consent = await viem.deployContract("ConsentManager", [
+    identity.address,
+  ]);
+  console.log("ConsentManager: ", consent.address);
 
-  const sharing = await (await hre.ethers.getContractFactory("DataSharing")).deploy(
-    await identity.getAddress(),
-    await consent.getAddress(),
-    await token.getAddress()
+  const token = await viem.deployContract("RewardToken");
+  console.log("RewardToken:    ", token.address);
+
+  const sharing = await viem.deployContract("DataSharing", [
+    identity.address,
+    consent.address,
+    token.address,
+  ]);
+  console.log("DataSharing:    ", sharing.address);
+
+  await consent.write.SetDataSharing([sharing.address]);
+
+  const minterRole = await token.read.MINTER_ROLE();
+  await token.write.grantRole([minterRole, sharing.address]);
+
+  console.log(
+    "Wiring done: ConsentManager -> DataSharing, MINTER_ROLE -> DataSharing"
   );
-  await sharing.waitForDeployment();
-  console.log("DataSharing:    ", await sharing.getAddress());
-
-  await (await consent.SetDataSharing(await sharing.getAddress())).wait();
-
-  await (await token.grantRole(await token.MINTER_ROLE(), await sharing.getAddress())).wait();
-  console.log("Wiring done: ConsentManager -> DataSharing, MINTER_ROLE -> DataSharing");
 
   const info = {
-    network: hre.network.name,
-    deployer: deployer.address,
+    network: networkName ?? "hardhat",
+    deployer: deployer.account.address,
     timestamp: new Date().toISOString(),
     contracts: {
-      DigitalIdentity: await identity.getAddress(),
-      ConsentManager: await consent.getAddress(),
-      RewardToken: await token.getAddress(),
-      DataSharing: await sharing.getAddress(),
+      DigitalIdentity: identity.address,
+      ConsentManager: consent.address,
+      RewardToken: token.address,
+      DataSharing: sharing.address,
     },
   };
-  fs.writeFileSync("deployment-addresses.json", JSON.stringify(info, null, 2));
+
+  fs.writeFileSync(
+    "deployment-addresses.json",
+    JSON.stringify(info, null, 2)
+  );
+
   console.log("Saved deployment-addresses.json");
 
-  return { identity, consent, token, sharing };
+  return { viem, identity, consent, token, sharing };
 }
 
-if (require.main === module) {
-  main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+if (import.meta.url === `file://${process.argv[1]}`) {
+  deploy().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
-
-module.exports = { main };
