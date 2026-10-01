@@ -1,4 +1,3 @@
-// Unit tests for the TRVL reward token.
 const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");

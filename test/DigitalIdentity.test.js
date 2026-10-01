@@ -1,4 +1,3 @@
-// Unit tests for DigitalIdentity: registration, roles, documents, issuer attestation.
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");

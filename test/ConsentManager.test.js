@@ -1,6 +1,3 @@
-// Unit tests for ConsentManager.
-// To test it in isolation we link it to a plain test account ("fakeSharing") instead of the
-// real DataSharing contract, so we can call SetConsent/RevokeConsent directly.
 const { expect } = require("chai");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");
@@ -17,7 +14,6 @@ async function deployConsentOnly() {
   const docExpiry = (await time.latest()) + 60 * DAY;
   await identity.connect(traveler).StoreDocument(DOC.VISA, id("visa-file"), docExpiry);
 
-  // "cm" = consent manager as seen by the (fake) DataSharing caller
   const cm = consent.connect(fakeSharing);
   return { identity, consent, cm, admin, traveler, airline, fakeSharing, stranger, docExpiry };
 }
@@ -93,7 +89,7 @@ describe("ConsentManager", function () {
 
     it("consent cannot outlive the document", async function () {
       const { identity, cm, traveler, airline } = await loadFixture(deployConsentOnly);
-      // replace the visa with one that expires in 2 days, then ask for 5 days of consent
+
       const docExpiry = (await time.latest()) + 2 * DAY;
       await identity.connect(traveler).StoreDocument(DOC.VISA, id("short-visa"), docExpiry);
       await expect(cm.SetConsent(traveler.address, airline.address, DOC.VISA, docExpiry + 3 * DAY))
@@ -123,7 +119,7 @@ describe("ConsentManager", function () {
     it("consent becomes invalid after expiry", async function () {
       const { cm, traveler, airline } = await loadFixture(deployConsentOnly);
       await cm.SetConsent(traveler.address, airline.address, DOC.VISA, (await time.latest()) + 2 * HOUR);
-      await time.increase(2 * HOUR + 1); // fast-forward the local blockchain clock
+      await time.increase(2 * HOUR + 1);
       expect(await cm.CheckConsent(traveler.address, airline.address, DOC.VISA)).to.equal(false);
     });
 

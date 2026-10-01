@@ -1,11 +1,10 @@
-// Tests for DataSharing: granting (+rewards), access, audit events, anti-farming.
 const { expect } = require("chai");
 const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
 const { ethers } = require("hardhat");
 const { id, DOC, HOUR, DAY, deployWithPassport } = require("./helpers");
 
-const REWARD = ethers.parseEther("10"); // 10 tokens with 18 decimals
-const DENY = { NoValidConsent: 0, DocumentExpired: 1 }; // matches the DenyReason enum
+const REWARD = ethers.parseEther("10");
+const DENY = { NoValidConsent: 0, DocumentExpired: 1 };
 
 describe("DataSharing", function () {
   describe("Granting consent", function () {
@@ -40,12 +39,12 @@ describe("DataSharing", function () {
       const { sharing, identity, token, traveler, airline, hotel } = await loadFixture(deployWithPassport);
       await identity.connect(traveler).StoreDocument(DOC.HOTEL_BOOKING, id("booking"), 0);
       const expiry = (await time.latest()) + DAY;
-      await sharing.connect(traveler).GrantConsent(airline.address, DOC.PASSPORT, expiry); // 10
+      await sharing.connect(traveler).GrantConsent(airline.address, DOC.PASSPORT, expiry);
       await sharing.connect(traveler).GrantMultipleConsents(
         [airline.address, hotel.address, hotel.address],
         [DOC.PASSPORT, DOC.PASSPORT, DOC.HOTEL_BOOKING],
         [expiry, expiry, expiry]
-      ); // airline/passport already rewarded -> only 2 new
+      );
       expect(await token.balanceOf(traveler.address)).to.equal(REWARD * 3n);
     });
 
@@ -68,7 +67,6 @@ describe("DataSharing", function () {
       const { sharing, traveler, airline, passportHash } = await loadFixture(deployWithPassport);
       await sharing.connect(traveler).GrantConsent(airline.address, DOC.PASSPORT, (await time.latest()) + DAY);
 
-      // staticCall = simulate the call and read the return values without sending a tx
       const [found, hash, attested] = await sharing.connect(airline).AccessDocument.staticCall(traveler.address, DOC.PASSPORT);
       expect(found).to.equal(true);
       expect(hash).to.equal(passportHash);
@@ -99,9 +97,8 @@ describe("DataSharing", function () {
       const { sharing, traveler, airline } = await loadFixture(deployWithPassport);
       const tx = await sharing.connect(airline).AccessDocument(traveler.address, DOC.PASSPORT);
       const receipt = await tx.wait();
-      expect(receipt.status).to.equal(1); // transaction succeeded
+      expect(receipt.status).to.equal(1);
 
-      // Read the logs back from the chain, like an auditor would
       const logs = await sharing.queryFilter(sharing.filters.AccessDenied(traveler.address, airline.address));
       expect(logs.length).to.equal(1);
       expect(logs[0].args.reason).to.equal(DENY.NoValidConsent);
@@ -126,11 +123,11 @@ describe("DataSharing", function () {
 
     it("access to an expired document is denied with DocumentExpired", async function () {
       const { sharing, identity, traveler, airline } = await loadFixture(deployWithPassport);
-      // 1. consent for 5 days on the passport (passport is valid for a year)
+
       await sharing.connect(traveler).GrantConsent(airline.address, DOC.PASSPORT, (await time.latest()) + 5 * DAY);
-      // 2. traveler replaces the passport with one that expires in 2 days
+
       await identity.connect(traveler).StoreDocument(DOC.PASSPORT, id("old-passport"), (await time.latest()) + 2 * DAY);
-      // 3. after 3 days: consent still valid, but the document is expired
+
       await time.increase(3 * DAY);
       await expect(sharing.connect(airline).AccessDocument(traveler.address, DOC.PASSPORT))
         .to.emit(sharing, "AccessDenied")
@@ -147,7 +144,6 @@ describe("DataSharing", function () {
   });
 });
 
-// Matcher for "any number" (used for timestamps we don't want to predict exactly)
 function anyUint() {
   return require("@nomicfoundation/hardhat-chai-matchers/withArgs").anyUint;
 }
