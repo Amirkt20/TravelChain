@@ -1,17 +1,12 @@
-// Live demo for the presentation. Runs the whole story on a fresh in-memory chain:
-// Traveler registers -> stores passport hash -> passport office attests -> grants Airline 24h
-// -> earns tokens -> Airline accesses + verifies file -> tampered file fails -> revoke -> DENIED
-// Usage: npx hardhat run scripts/demo.js
 const hre = require("hardhat");
 const { main: deploy } = require("./deploy");
 
 const { ethers } = hre;
 const id = (t) => ethers.keccak256(ethers.toUtf8Bytes(t));
 const PASSPORT = id("PASSPORT");
-const ROLE_AIRLINE = 2; // matches the Role enum in IDigitalIdentity.sol
+const ROLE_AIRLINE = 2;
 const HOUR = 3600;
 
-// small helper so the output reads like a story
 const step = (n, text) => console.log(`\n[${n}] ${text}`);
 
 async function now() {
@@ -30,8 +25,7 @@ async function main() {
   await identity.connect(alice).RegisterTraveler(id("NL-ID-123"), id("alice@mail.com"));
 
   step(3, "Alice hashes her passport file off-chain and stores ONLY the hash");
-  // In a real app this would be the bytes of a PDF/scan. A random salt is added so the hash
-  // can't be guessed from public info (the salt is sent to the airline together with the file).
+
   const salt = ethers.hexlify(ethers.randomBytes(16));
   const passportFile = "PASSPORT|NL|ALICE|1990-01-01|NX1234567";
   const passportHash = id(passportFile + salt);
@@ -47,7 +41,7 @@ async function main() {
 
   step(6, "KLM accesses the passport hash");
   const [found, onChainHash, attested] = await sharing.connect(klm).AccessDocument.staticCall(alice.address, PASSPORT);
-  await sharing.connect(klm).AccessDocument(alice.address, PASSPORT); // real tx -> AccessGranted logged
+  await sharing.connect(klm).AccessDocument(alice.address, PASSPORT);
   console.log("    found:", found, "| attested by issuer:", attested);
 
   step(7, "KLM verifies the file Alice sent them (off-chain)");
