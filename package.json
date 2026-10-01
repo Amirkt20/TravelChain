@@ -1,7 +1,7 @@
 {
-  "name": "bc_project_starter",
+  "name": "travelchain",
   "version": "1.0.0",
-  "description": "EduChain - Decentralized Academic Credential Sharing Platform",
+  "description": "Decentralized travel identity and document sharing platform",
   "main": "index.js",
   "directories": {
     "doc": "docs"
